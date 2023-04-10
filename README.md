@@ -1,2 +1,2 @@
 # distrubuted-chessboard-generation
-Distributed system for generating all potential moves of a chessboard.
+A distributed system for generating all potential moves of a chessboard.
