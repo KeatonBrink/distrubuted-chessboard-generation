@@ -170,12 +170,12 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 			}
 		}
 		for left := starting.Column - 1; left > ending.Column; left-- {
-			if cb.Board[left][starting.Column].Color != Neither {
+			if cb.Board[starting.Row][left].Color != Neither {
 				return false
 			}
 		}
 		for right := starting.Column + 1; right < ending.Column; right++ {
-			if cb.Board[right][starting.Column].Color != Neither {
+			if cb.Board[starting.Row][right].Color != Neither {
 				return false
 			}
 		}
@@ -261,12 +261,12 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 				}
 			}
 			for left := starting.Column - 1; left > ending.Column; left-- {
-				if cb.Board[left][starting.Column].Color != Neither {
+				if cb.Board[starting.Row][left].Color != Neither {
 					return false
 				}
 			}
 			for right := starting.Column + 1; right < ending.Column; right++ {
-				if cb.Board[right][starting.Column].Color != Neither {
+				if cb.Board[starting.Row][right].Color != Neither {
 					return false
 				}
 			}
@@ -295,5 +295,120 @@ func FindDeltas(starting, ending Move) (int, int) {
 
 // Needs work
 func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
+	tempCB := cb
+	tempCB.Board[ending.Row][ending.Column] = tempCB.Board[starting.Row][starting.Column]
+	var kingLocation Move
+	kingColor := tempCB.Board[ending.Row][ending.Column].Color
+	for curRow := 0; curRow < 8; curRow++ {
+		for curCol := 0; curCol < 8; curCol++ {
+			if tempCB.Board[curRow][curCol].Color == kingColor && tempCB.Board[curRow][curCol].Name == King {
+				kingLocation.Row = curRow
+				kingLocation.Column = curCol
+			}
+		}
+	}
+	if kingColor == Black {
+		// Check pawns
+		if kingLocation.Row > 1 && ((tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Color == White) ||
+			(tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Color == White)) {
+
+			return true
+		}
+		// Check rook and 1/2 queen
+		for up := kingLocation.Row + 1; up <= 7; up++ {
+			if tempCB.Board[up][kingLocation.Column].Color == White {
+				if tempCB.Board[up][kingLocation.Column].Name == Rook || tempCB.Board[up][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[up][kingLocation.Column].Color == Black {
+				break
+			}
+		}
+		for down := kingLocation.Row - 1; down >= 0; down-- {
+			if tempCB.Board[down][starting.Column].Color == White {
+				if tempCB.Board[down][kingLocation.Column].Name == Rook || tempCB.Board[down][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[down][kingLocation.Column].Color == Black {
+				break
+			}
+		}
+		for left := starting.Column - 1; left >= 0; left-- {
+			if tempCB.Board[kingLocation.Row][left].Color == White {
+				if tempCB.Board[kingLocation.Row][left].Name == Rook || tempCB.Board[kingLocation.Row][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[kingLocation.Row][left].Color == Black {
+				break
+			}
+		}
+		for right := starting.Column + 1; right <= 7; right++ {
+			if tempCB.Board[kingLocation.Row][right].Color == Black {
+				if tempCB.Board[kingLocation.Row][right].Name == Rook || tempCB.Board[kingLocation.Row][right].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[kingLocation.Row][right].Color == White {
+				break
+			}
+		}
+	} else {
+		if kingLocation.Row < 6 && ((tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Color == Black) ||
+			(tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Color == Black)) {
+			return true
+		}
+		// Check rook and 1/2 queen
+		for up := kingLocation.Row + 1; up <= 7; up++ {
+			if tempCB.Board[up][kingLocation.Column].Color == Black {
+				if tempCB.Board[up][kingLocation.Column].Name == Rook || tempCB.Board[up][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[up][kingLocation.Column].Color == White {
+				break
+			}
+		}
+		for down := kingLocation.Row - 1; down >= 0; down-- {
+			if tempCB.Board[down][starting.Column].Color == Black {
+				if tempCB.Board[down][kingLocation.Column].Name == Rook || tempCB.Board[down][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[down][kingLocation.Column].Color == White {
+				break
+			}
+		}
+		for left := starting.Column - 1; left >= 0; left-- {
+			if tempCB.Board[kingLocation.Row][left].Color == Black {
+				if tempCB.Board[kingLocation.Row][left].Name == Rook || tempCB.Board[kingLocation.Row][kingLocation.Column].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[kingLocation.Row][left].Color == White {
+				break
+			}
+		}
+		for right := starting.Column + 1; right <= 7; right++ {
+			if tempCB.Board[kingLocation.Row][right].Color == Black {
+				if tempCB.Board[kingLocation.Row][right].Name == Rook || tempCB.Board[kingLocation.Row][right].Name == Queen {
+					return false
+				} else {
+					break
+				}
+			} else if tempCB.Board[kingLocation.Row][right].Color == White {
+				break
+			}
+		}
+	}
 	return false
 }
