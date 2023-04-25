@@ -55,6 +55,37 @@ func (cb Chessboard) Move(starting, ending Move) error {
 	return nil
 }
 
+// Sets board to starting pieces
+func (cb Chessboard) Reset() error {
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			cb.Board[curRow][curCol] = ChessPiece{Color: Neither, Name: Empty}
+		}
+	}
+	// Starting from bottom left to top right filling appropriate spots with pieces
+	cb.Board[0][0] = ChessPiece{Color: White, Name: Rook}
+	cb.Board[0][1] = ChessPiece{Color: White, Name: Knight}
+	cb.Board[0][2] = ChessPiece{Color: White, Name: Bishop}
+	cb.Board[0][3] = ChessPiece{Color: White, Name: Queen}
+	cb.Board[0][4] = ChessPiece{Color: White, Name: King}
+	cb.Board[0][5] = ChessPiece{Color: White, Name: Bishop}
+	cb.Board[0][6] = ChessPiece{Color: White, Name: Knight}
+	cb.Board[0][7] = ChessPiece{Color: White, Name: Rook}
+	for curCol := 0; curCol <= 7; curCol++ {
+		cb.Board[1][curCol] = ChessPiece{Color: White, Name: Pawn}
+		cb.Board[6][curCol] = ChessPiece{Color: Black, Name: Pawn}
+	}
+	cb.Board[7][0] = ChessPiece{Color: Black, Name: Rook}
+	cb.Board[7][1] = ChessPiece{Color: Black, Name: Knight}
+	cb.Board[7][2] = ChessPiece{Color: Black, Name: Bishop}
+	cb.Board[7][3] = ChessPiece{Color: Black, Name: Queen}
+	cb.Board[7][4] = ChessPiece{Color: Black, Name: King}
+	cb.Board[7][5] = ChessPiece{Color: Black, Name: Bishop}
+	cb.Board[7][6] = ChessPiece{Color: Black, Name: Knight}
+	cb.Board[7][7] = ChessPiece{Color: Black, Name: Rook}
+	return nil
+}
+
 // IsValidMove: Takes a starting and ending move, and checks if the given piece can move.
 //
 //	Failure can occure due to check, checkmate, or moving on same color
