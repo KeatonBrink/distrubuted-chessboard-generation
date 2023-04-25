@@ -303,8 +303,14 @@ func FindDeltas(starting, ending Move) (int, int) {
 func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 	tempCB := cb
 	tempCB.Board[ending.Row][ending.Column] = tempCB.Board[starting.Row][starting.Column]
+	tempCB.Board[starting.Row][starting.Column] = ChessPiece{Color: Neither, Name: Empty}
+	kingColor := tempCB.Board[starting.Row][starting.Column].Color
+	return tempCB.IsCheck(kingColor)
+}
+
+func (cb Chessboard) IsCheck(kingColor int) bool {
+	tempCB := cb
 	var kingLocation Move
-	kingColor := tempCB.Board[ending.Row][ending.Column].Color
 	for curRow := 0; curRow < 8; curRow++ {
 		for curCol := 0; curCol < 8; curCol++ {
 			if tempCB.Board[curRow][curCol].Color == kingColor && tempCB.Board[curRow][curCol].Name == King {
@@ -333,7 +339,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 			}
 		}
 		for down := kingLocation.Row - 1; down >= 0; down-- {
-			if tempCB.Board[down][starting.Column].Color == White {
+			if tempCB.Board[down][kingLocation.Column].Color == White {
 				if tempCB.Board[down][kingLocation.Column].Name == Rook || tempCB.Board[down][kingLocation.Column].Name == Queen {
 					return true
 				} else {
@@ -343,7 +349,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 				break
 			}
 		}
-		for left := starting.Column - 1; left >= 0; left-- {
+		for left := kingLocation.Column - 1; left >= 0; left-- {
 			if tempCB.Board[kingLocation.Row][left].Color == White {
 				if tempCB.Board[kingLocation.Row][left].Name == Rook || tempCB.Board[kingLocation.Row][kingLocation.Column].Name == Queen {
 					return true
@@ -354,7 +360,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 				break
 			}
 		}
-		for right := starting.Column + 1; right <= 7; right++ {
+		for right := kingLocation.Column + 1; right <= 7; right++ {
 			if tempCB.Board[kingLocation.Row][right].Color == White {
 				if tempCB.Board[kingLocation.Row][right].Name == Rook || tempCB.Board[kingLocation.Row][right].Name == Queen {
 					return true
@@ -483,7 +489,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 			}
 		}
 		for down := kingLocation.Row - 1; down >= 0; down-- {
-			if tempCB.Board[down][starting.Column].Color == Black {
+			if tempCB.Board[down][kingLocation.Column].Color == Black {
 				if tempCB.Board[down][kingLocation.Column].Name == Rook || tempCB.Board[down][kingLocation.Column].Name == Queen {
 					return true
 				} else {
@@ -493,7 +499,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 				break
 			}
 		}
-		for left := starting.Column - 1; left >= 0; left-- {
+		for left := kingLocation.Column - 1; left >= 0; left-- {
 			if tempCB.Board[kingLocation.Row][left].Color == Black {
 				if tempCB.Board[kingLocation.Row][left].Name == Rook || tempCB.Board[kingLocation.Row][kingLocation.Column].Name == Queen {
 					return true
@@ -504,7 +510,7 @@ func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 				break
 			}
 		}
-		for right := starting.Column + 1; right <= 7; right++ {
+		for right := kingLocation.Column + 1; right <= 7; right++ {
 			if tempCB.Board[kingLocation.Row][right].Color == Black {
 				if tempCB.Board[kingLocation.Row][right].Name == Rook || tempCB.Board[kingLocation.Row][right].Name == Queen {
 					return true
