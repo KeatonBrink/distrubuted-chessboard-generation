@@ -1,4 +1,4 @@
-package main
+package distributedchessboardgeneration
 
 import (
 	"errors"
@@ -56,10 +56,16 @@ func (cb Chessboard) Move(starting, ending Move) error {
 }
 
 // Sets board to starting pieces
-func (cb Chessboard) Reset() error {
+func (cb *Chessboard) Reset() error {
+	cb.hasCastled = false
+	cb.Board = make([][]ChessPiece, 8)
+	for i := range cb.Board {
+		cb.Board[i] = make([]ChessPiece, 8)
+	}
 	for curRow := 0; curRow <= 7; curRow++ {
 		for curCol := 0; curCol <= 7; curCol++ {
-			cb.Board[curRow][curCol] = ChessPiece{Color: Neither, Name: Empty}
+			cb.Board[curRow][curCol].Name = Empty
+			cb.Board[curRow][curCol].Color = Neither
 		}
 	}
 	// Starting from bottom left to top right filling appropriate spots with pieces
@@ -317,7 +323,6 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 	default:
 		return false
 	}
-	// Todo
 	if cb.IsResultCheck(starting, ending) {
 		return false
 	}
@@ -330,7 +335,7 @@ func FindDeltas(starting, ending Move) (int, int) {
 	return deltaRow, deltaColumn
 }
 
-// Needs work
+// Needs more tests
 func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
 	tempCB := cb
 	tempCB.Board[ending.Row][ending.Column] = tempCB.Board[starting.Row][starting.Column]
@@ -352,8 +357,8 @@ func (cb Chessboard) IsCheck(kingColor int) bool {
 	}
 	if kingColor == Black {
 		// Check pawns
-		if kingLocation.Row > 1 && ((tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Color == White) ||
-			(tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Color == White)) {
+		if kingLocation.Row > 1 && ((kingLocation.Column > 0 && tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column-1].Color == White) ||
+			(kingLocation.Column < 7 && tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row-1][kingLocation.Column+1].Color == White)) {
 
 			return true
 		}
@@ -503,8 +508,8 @@ func (cb Chessboard) IsCheck(kingColor int) bool {
 		}
 		// In case the King is white
 	} else {
-		if kingLocation.Row < 6 && ((tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Color == Black) ||
-			(tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Color == Black)) {
+		if kingLocation.Row < 6 && ((kingLocation.Column > 0 && tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column-1].Color == Black) ||
+			(kingLocation.Column < 7 && tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Name == Pawn && tempCB.Board[kingLocation.Row+1][kingLocation.Column+1].Color == Black)) {
 			return true
 		}
 		// Check rook and 1/2 queen
@@ -653,4 +658,71 @@ func (cb Chessboard) IsCheck(kingColor int) bool {
 		}
 	}
 	return false
+}
+
+func (cb Chessboard) CountImportantPiecesAndLocation() (int, error) {
+	if len(cb.Board) != 8 {
+		return 0, errors.New("error: Board not initialized")
+	}
+	curCount := 0
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			if cb.Board[curRow][curCol].Color != Neither {
+				curCount++
+			}
+		}
+	}
+	return curCount, nil
+}
+
+// Need an IsCheckmate clause
+// And built on top is an IsStalemate
+
+// NextIterativeBoard takes in a board and essentially finds the next iteration of the board with new pieces
+func NextIterativeBoard(prevCB Chessboard) (Chessboard, error) {
+	nextCB := prevCB
+	var resetCB Chessboard
+	resetCB.Reset()
+	totalPieces, err := nextCB.CountImportantPiecesAndLocation()
+	if err != nil {
+		return Chessboard{}, err
+	}
+	// // If the board is new
+	// if totalPieces == 2 {
+	// 	// Send out the starter board with kinds and 1 Rook
+	// 	nextCB.Board[0][0] = resetCB.Board[0][0]
+	// 	return nextCB, nil
+	// }
+	// curPieceCount := 0
+	// var targetPieceLocation Move
+	// // For loop to find the last occurence of a non-king piece
+	// for curRow := 0; curRow <= 7; curRow++ {
+	// 	for curCol := 0; curCol <= 7; curCol++ {
+	// 		if nextCB.Board[curRow][curCol].Color != Neither {
+	// 			curPieceCount++
+	// 			if nextCB.Board[curRow][curCol].Name != King {
+	// 				targetPieceLocation.Row = curRow
+	// 				targetPieceLocation.Column = curCol
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// If the last piece is not a rook
+	// Semi-wonky logic
+	// if targetPieceLocation.Row == 7 && targetPieceLocation.Column == 7 {
+
+	// } else {
+	// 	if targetPieceLocation.Column == 3 {
+	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
+	// 		nextCB.Board[targetPieceLocation.Row][5] = resetCB.Board[targetPieceLocation.Row][5]
+	// 		return nextCB, nil
+	// 	} else if targetPieceLocation.Column == 7 && (targetPieceLocation.Row == 0 || targetPieceLocation.Row == 6) {
+	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
+	// 		nextCB.Board[targetPieceLocation.Row+1][0] = resetCB.Board[targetPieceLocation.Row+1][0]
+	// 	} else if targetPieceLocation.Column == 7 && targetPieceLocation.Row == 1 {
+	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
+	// 		nextCB.Board[6][0] = resetCB.Board[6][0]
+	// 	}
+	}
+	return nextCB, nil
 }

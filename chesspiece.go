@@ -1,4 +1,4 @@
-package main
+package distributedchessboardgeneration
 
 // Color enumeration
 const (
