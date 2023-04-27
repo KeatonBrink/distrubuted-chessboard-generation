@@ -723,6 +723,6 @@ func NextIterativeBoard(prevCB Chessboard) (Chessboard, error) {
 	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
 	// 		nextCB.Board[6][0] = resetCB.Board[6][0]
 	// 	}
-	}
+	// }
 	return nextCB, nil
 }
