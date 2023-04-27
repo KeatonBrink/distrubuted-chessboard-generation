@@ -2,7 +2,10 @@ package distributedchessboardgeneration
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"math"
+	"time"
 )
 
 /*
@@ -13,7 +16,7 @@ import (
 
 type Chessboard struct {
 	Board      [][]ChessPiece // Contains strings that can be deciphered into a specific piece
-	hasCastled bool           // One of many logic checkers that will be needed
+	HasCastled bool           // One of many logic checkers that will be needed
 }
 
 type Move struct {
@@ -49,7 +52,7 @@ func (cb Chessboard) Move(starting, ending Move) error {
 				cb.Board[0][3] = ChessPiece{Color: Black, Name: Rook}
 			}
 		}
-		cb.hasCastled = true
+		cb.HasCastled = true
 	}
 	// Todo: Implment en passant
 	return nil
@@ -57,7 +60,7 @@ func (cb Chessboard) Move(starting, ending Move) error {
 
 // Sets board to starting pieces
 func (cb *Chessboard) Reset() error {
-	cb.hasCastled = false
+	cb.HasCastled = false
 	cb.Board = make([][]ChessPiece, 8)
 	for i := range cb.Board {
 		cb.Board[i] = make([]ChessPiece, 8)
@@ -660,69 +663,64 @@ func (cb Chessboard) IsCheck(kingColor int) bool {
 	return false
 }
 
-func (cb Chessboard) CountImportantPiecesAndLocation() (int, error) {
-	if len(cb.Board) != 8 {
-		return 0, errors.New("error: Board not initialized")
-	}
-	curCount := 0
-	for curRow := 0; curRow <= 7; curRow++ {
+func (cb Chessboard) PrintSelf() {
+	for curRow := 7; curRow >= 0; curRow-- {
+		fmt.Printf("_%v_", curRow)
 		for curCol := 0; curCol <= 7; curCol++ {
-			if cb.Board[curRow][curCol].Color != Neither {
-				curCount++
+			curPiece := cb.Board[curRow][curCol]
+			if curPiece.Color == Neither {
+				fmt.Printf(" ___ ")
+				continue
 			}
+			fmt.Printf(" ")
+			if curPiece.Color == White {
+				fmt.Printf("W")
+			} else {
+				fmt.Printf("B")
+			}
+			switch curPiece.Name {
+			case Pawn:
+				fmt.Print("Pa")
+			case Rook:
+				fmt.Print("Ro")
+			case Knight:
+				fmt.Print("Kn")
+			case Bishop:
+				fmt.Print("Bi")
+			case Queen:
+				fmt.Print("Qu")
+			case King:
+				fmt.Print("Ki")
+			default:
+				log.Fatal("PrintSelf error, Piece with unknown name")
+			}
+			fmt.Printf(" ")
+
 		}
+		fmt.Println()
+		fmt.Println()
 	}
-	return curCount, nil
+	fmt.Println("     0    1    2    3    4    5    6    7   ")
 }
 
 // Need an IsCheckmate clause
 // And built on top is an IsStalemate
 
-// NextIterativeBoard takes in a board and essentially finds the next iteration of the board with new pieces
-func NextIterativeBoard(prevCB Chessboard) (Chessboard, error) {
-	nextCB := prevCB
-	var resetCB Chessboard
-	resetCB.Reset()
-	totalPieces, err := nextCB.CountImportantPiecesAndLocation()
-	if err != nil {
-		return Chessboard{}, err
+func GenerateBoards() {
+	outputCBChan := make(chan Chessboard, 10)
+	go NextIterativeBoard(outputCBChan)
+	for val := range outputCBChan {
+		val.PrintSelf()
+		time.Sleep(time.Second)
 	}
-	// // If the board is new
-	// if totalPieces == 2 {
-	// 	// Send out the starter board with kinds and 1 Rook
-	// 	nextCB.Board[0][0] = resetCB.Board[0][0]
-	// 	return nextCB, nil
-	// }
-	// curPieceCount := 0
-	// var targetPieceLocation Move
-	// // For loop to find the last occurence of a non-king piece
-	// for curRow := 0; curRow <= 7; curRow++ {
-	// 	for curCol := 0; curCol <= 7; curCol++ {
-	// 		if nextCB.Board[curRow][curCol].Color != Neither {
-	// 			curPieceCount++
-	// 			if nextCB.Board[curRow][curCol].Name != King {
-	// 				targetPieceLocation.Row = curRow
-	// 				targetPieceLocation.Column = curCol
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// If the last piece is not a rook
-	// Semi-wonky logic
-	// if targetPieceLocation.Row == 7 && targetPieceLocation.Column == 7 {
+}
 
-	// } else {
-	// 	if targetPieceLocation.Column == 3 {
-	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
-	// 		nextCB.Board[targetPieceLocation.Row][5] = resetCB.Board[targetPieceLocation.Row][5]
-	// 		return nextCB, nil
-	// 	} else if targetPieceLocation.Column == 7 && (targetPieceLocation.Row == 0 || targetPieceLocation.Row == 6) {
-	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
-	// 		nextCB.Board[targetPieceLocation.Row+1][0] = resetCB.Board[targetPieceLocation.Row+1][0]
-	// 	} else if targetPieceLocation.Column == 7 && targetPieceLocation.Row == 1 {
-	// 		nextCB.Board[targetPieceLocation.Row][targetPieceLocation.Column] = ChessPiece{}
-	// 		nextCB.Board[6][0] = resetCB.Board[6][0]
-	// 	}
-	// }
-	return nextCB, nil
+// NextIterativeBoard takes in a board and essentially finds the next iteration of the board with new pieces
+func NextIterativeBoard(outputCBChan chan<- Chessboard) {
+	bitBoardChan := make(chan int, 20)
+	go GetAll30PowerSet(bitBoardChan)
+
+	for bitBoard := range bitBoardChan {
+		outputCBChan <- DecodeBitBoard(bitBoard)
+	}
 }

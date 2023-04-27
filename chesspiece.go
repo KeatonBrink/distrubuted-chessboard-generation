@@ -2,9 +2,9 @@ package distributedchessboardgeneration
 
 // Color enumeration
 const (
-	Black int = iota
+	Neither int = iota
+	Black
 	White
-	Neither
 )
 
 // Piece enumeration
