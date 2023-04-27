@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"time"
 )
 
 /*
@@ -27,12 +26,13 @@ type Move struct {
 // Defining methods of Chessboard
 // Move: Takes a starting and ending Move struct, and returns an error if the method could not
 //
+//	I am not positive I want this to be a method of itself
+//
 //	successfully move the piece for any reason
-func (cb Chessboard) Move(starting, ending Move) error {
-	// Todo
+func (cb Chessboard) MoveSelf(starting, ending Move) error {
 	canMove := cb.IsValidMove(starting, ending)
 	if !canMove {
-		return errors.New("Error, not a valid move")
+		return errors.New("isValidMove error, not a valid move")
 	}
 	// The piece will move regardless
 	cb.Board[ending.Row][ending.Column] = cb.Board[starting.Row][starting.Column]
@@ -56,6 +56,35 @@ func (cb Chessboard) Move(starting, ending Move) error {
 	}
 	// Todo: Implment en passant
 	return nil
+}
+
+func MovePiece(cb Chessboard, starting, ending Move) (Chessboard, error) {
+	canMove := cb.IsValidMove(starting, ending)
+	if !canMove {
+		return cb, errors.New("isValidMove error, not a valid move")
+	}
+	// The piece will move regardless
+	cb.Board[ending.Row][ending.Column] = cb.Board[starting.Row][starting.Column]
+	cb.Board[starting.Row][starting.Column] = ChessPiece{Color: Neither, Name: Empty}
+	// Check if castling, so the rook can be moved
+	if cb.Board[ending.Row][ending.Column].Name == King && math.Abs(float64(starting.Column-ending.Column)) > 1 {
+		if starting.Row == 0 {
+			if ending.Column == 6 {
+				cb.Board[0][5] = ChessPiece{Color: White, Name: Rook}
+			} else {
+				cb.Board[0][3] = ChessPiece{Color: White, Name: Rook}
+			}
+		} else {
+			if ending.Column == 6 {
+				cb.Board[0][5] = ChessPiece{Color: Black, Name: Rook}
+			} else {
+				cb.Board[0][3] = ChessPiece{Color: Black, Name: Rook}
+			}
+		}
+		cb.HasCastled = true
+	}
+	// Todo: Implment en passant
+	return cb, nil
 }
 
 // Sets board to starting pieces
@@ -704,15 +733,91 @@ func (cb Chessboard) PrintSelf() {
 	fmt.Println("     0    1    2    3    4    5    6    7   ")
 }
 
+// Generate all next moves, utilized by worker
+func (cb Chessboard) CreateNextMoves() []Chessboard {
+	allPieceLocations := cb.FindAllPieceLocations()
+	var nextBoards []Chessboard
+	// For each location on the board, try to create new boards
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			// At each location, test movement of all pieces to that location
+			for _, piece := range allPieceLocations {
+				testCB, err := MovePiece(cb, piece, Move{Row: curRow, Column: curCol})
+				// Note, an error occurs when the move is invalid, and should be thrown away
+				if err == nil {
+					nextBoards = append(nextBoards, testCB)
+				}
+			}
+		}
+	}
+	return nextBoards
+}
+
+// Takes a ChessBoard, and makes a string.  Will be used for mapping completed boards and prevent double execution
+func (cb Chessboard) Stringify() string {
+	stringCB := ""
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			stringCB += cb.Board[curRow][curCol].Stringify()
+		}
+	}
+	return stringCB
+}
+
+// Takes a ChessPiece and makes it a string
+func (p ChessPiece) Stringify() string {
+	curPieceString := ""
+	if p.Color == Neither {
+		return "_"
+	}
+	if p.Color == Black {
+		curPieceString += "B"
+	} else if p.Color == White {
+		curPieceString += "W"
+	}
+
+	switch p.Name {
+	case Pawn:
+		curPieceString += "Pa"
+	case Rook:
+		curPieceString += "Ro"
+	case Knight:
+		curPieceString += "Kn"
+	case Bishop:
+		curPieceString += "Bi"
+	case Queen:
+		curPieceString += "Qu"
+	case King:
+		curPieceString += "Ki"
+	default:
+		log.Fatal("PrintSelf error, Piece with unknown name")
+	}
+	return curPieceString
+}
+
+func (cb Chessboard) FindAllPieceLocations() []Move {
+	var allPieceLocations []Move
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			if cb.Board[curRow][curRow].Color != Neither {
+				allPieceLocations = append(allPieceLocations, Move{Row: curRow, Column: curCol})
+			}
+		}
+	}
+	return allPieceLocations
+}
+
 // Need an IsCheckmate clause
 // And built on top is an IsStalemate
 
+// Utilized by Master
 func GenerateBoards() {
 	outputCBChan := make(chan Chessboard, 10)
 	go NextIterativeBoard(outputCBChan)
 	for val := range outputCBChan {
+		log.Println(val.Stringify())
 		val.PrintSelf()
-		time.Sleep(time.Second * 1)
+		// time.Sleep(time.Second * 1)
 	}
 }
 
