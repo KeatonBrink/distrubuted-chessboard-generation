@@ -10,24 +10,37 @@ func DecodeBitBoard(cbInt int) Chessboard {
 		retCB.Board[i] = make([]ChessPiece, 8)
 	}
 	for curP := 0; curP <= 7; curP++ {
-		// White Pawns
-		if (1<<(curP+7))&cbInt > 0 {
-			retCB.Board[1][curP] = resetCB.Board[1][curP]
-		}
 		// Black Pawns
 		if (1<<(curP+15))&cbInt > 0 {
 			retCB.Board[6][curP] = resetCB.Board[6][curP]
 		}
-		// Note, index 4 is king
-		// White Outer Row
-		if ((1<<curP)&cbInt > 0) || curP == 4 {
-			retCB.Board[0][curP] = resetCB.Board[0][curP]
+		// White Pawns
+		if (1<<(curP+7))&cbInt > 0 {
+			retCB.Board[1][curP] = resetCB.Board[1][curP]
 		}
-		// Black outer row
-		if ((1<<(curP+23))&cbInt > 0) || curP == 4 {
-			retCB.Board[7][curP] = resetCB.Board[7][curP]
+		// White Outer Row
+		if curP < 4 {
+			if (1<<curP)&cbInt > 0 {
+				retCB.Board[0][curP] = resetCB.Board[0][curP]
+			}
+			// Black outer row
+			if ((1<<(curP+23))&cbInt > 0) || curP == 4 {
+				retCB.Board[7][curP] = resetCB.Board[7][curP]
+			}
+			// After index 4, some off by one errors occur, but the curP+1 should fix it
+		} else if curP < 7 {
+			if (1<<curP)&cbInt > 0 {
+				retCB.Board[0][curP+1] = resetCB.Board[0][curP+1]
+			}
+			// Black outer row
+			if (1<<(curP+23))&cbInt > 0 {
+				retCB.Board[7][curP+1] = resetCB.Board[7][curP+1]
+			}
 		}
 	}
+	// Note, index 4 is king and is always printed, but is not i the bit board
+	retCB.Board[0][4] = resetCB.Board[0][4]
+	retCB.Board[7][4] = resetCB.Board[7][4]
 	return retCB
 }
 

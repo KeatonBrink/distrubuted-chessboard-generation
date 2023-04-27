@@ -663,6 +663,7 @@ func (cb Chessboard) IsCheck(kingColor int) bool {
 	return false
 }
 
+// Prints board in a semi-readable fashion
 func (cb Chessboard) PrintSelf() {
 	for curRow := 7; curRow >= 0; curRow-- {
 		fmt.Printf("_%v_", curRow)
@@ -711,7 +712,7 @@ func GenerateBoards() {
 	go NextIterativeBoard(outputCBChan)
 	for val := range outputCBChan {
 		val.PrintSelf()
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 1)
 	}
 }
 
