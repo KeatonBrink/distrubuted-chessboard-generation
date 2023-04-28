@@ -1,55 +1,21 @@
 package distributedchessboardgeneration
 
 import (
-	"errors"
 	"flag"
 	"log"
 	"net"
-	"net/http"
 	"net/rpc"
-	"sync"
 )
 
-type MNode struct {
-	BoardsToDo     chan Chessboard
-	FinishedBoards map[string][]Chessboard
-}
-
-type GetBoardReply struct {
-	Board  Chessboard
-	IsDone bool
-}
-
-type Nothing struct{}
-
-var Mutex sync.Mutex
-
-func (n *MNode) Get_Board(nothing Nothing, reply *GetBoardReply) error {
-	Mutex.Lock()
-	defer Mutex.Unlock()
-	(*reply).Board = <-n.BoardsToDo
-	(*reply).IsDone = false
-	log.Println("Tasking a Board:")
-	(*reply).Board.PrintSelf()
-	return nil
-}
-
-func (n *MNode) Return_Board(curBoards map[string][]Chessboard, reply *Nothing) error {
-	log.Println("Recieving Finished Board")
-	Mutex.Lock()
-	defer Mutex.Unlock()
-	for mstring, mboard := range curBoards {
-		if _, ok := n.FinishedBoards[mstring]; !ok {
-			n.FinishedBoards[mstring] = mboard
-		} else {
-			log.Printf("Error in Returning computed board:\n%v", mstring)
-			return errors.New("return_board error: board is already computed")
-		}
-	}
-	return nil
-}
-
 func Start() error {
+	// Two options here worker and master debugging
+
+	// Worker debug
+	// rolePtr := flag.String("role", "worker", "a String: master, worker")
+	// masterAddrPtr := flag.String("masterAddr", getLocalAddress()+":3410", "a String")
+	// portPtr := flag.String("port", "3440", "a String")
+
+	// Master Debug
 	rolePtr := flag.String("role", "master", "a String: master, worker")
 	masterAddrPtr := flag.String("masterAddr", getLocalAddress()+":3410", "a String")
 	portPtr := flag.String("port", "3410", "a String")
@@ -68,24 +34,6 @@ func Start() error {
 	return nil
 }
 
-func masterNode(port string) error {
-	myAddress := getLocalAddress() + ":" + port
-	masterNode := &MNode{BoardsToDo: make(chan Chessboard, 10), FinishedBoards: make(map[string][]Chessboard)}
-	var isFinishedChan chan Nothing
-	go NextIterativeBoard(masterNode.BoardsToDo, isFinishedChan)
-	// This will eventually be replaced with GRPC
-	rpc.Register(masterNode)
-	rpc.HandleHTTP()
-	go func() {
-		if err := http.ListenAndServe(myAddress, nil); err != nil {
-			log.Printf("Error in HTTP server for %s: %v", myAddress, err)
-		}
-	}()
-	log.Println("Created rpc with address ", myAddress)
-	<-isFinishedChan
-	return nil
-}
-
 func workerNode(port, masterAddress string) error {
 	myAddress := getLocalAddress() + ":" + port
 	for {
@@ -98,12 +46,12 @@ func workerNode(port, masterAddress string) error {
 		}
 		curBoard := curReply.Board
 		curPieceCount := curBoard.CountAllPieces()
-		boardMap := make(map[string][]Chessboard)
+		boardMap := make(map[string][]string)
 		curNextMoves := curBoard.CreateNextMoves()
 		todoBoardQueue := curNextMoves
 		hasQueued := make(map[string]bool)
 		hasQueued[curBoard.Stringify()] = true
-		boardMap[curBoard.Stringify()] = curNextMoves
+		boardMap[curBoard.Stringify()] = StringifySliceCB(curNextMoves)
 		for len(todoBoardQueue) > 0 {
 			if len(todoBoardQueue) > 1 {
 				curBoard, curNextMoves, todoBoardQueue = todoBoardQueue[0], todoBoardQueue[0].CreateNextMoves(), todoBoardQueue[1:]
@@ -112,7 +60,7 @@ func workerNode(port, masterAddress string) error {
 			}
 
 			// Too many repeats are ending up in here
-			boardMap[curBoard.Stringify()] = curNextMoves
+			boardMap[curBoard.Stringify()] = StringifySliceCB(curNextMoves)
 			for _, curNextMove := range curNextMoves {
 				_, curHasQueued := hasQueued[curNextMove.Stringify()]
 				if _, ok := boardMap[curNextMove.Stringify()]; !ok && curNextMove.CountAllPieces() == curPieceCount && !curHasQueued {
@@ -142,7 +90,7 @@ func getBoard(masterAddr string) GetBoardReply {
 	}
 	return reply
 }
-func returnBoards(masterAddr, myAddress string, curBoards map[string][]Chessboard) {
+func returnBoards(masterAddr, myAddress string, curBoards map[string][]string) {
 	client, err := rpc.DialHTTP("tcp", string(masterAddr))
 	if err != nil {
 		log.Fatalf("rpc.DialHTTP(Return_Board): %v", err)

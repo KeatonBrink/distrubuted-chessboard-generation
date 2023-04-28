@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// I mainly wanted to try out unit testing in golang.  This file still needs lots of tests added
+
 // Test movement of white pawn sideways from reset
 func TestMoveWPawnSidways(t *testing.T) {
 	var cb Chessboard

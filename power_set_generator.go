@@ -3,12 +3,7 @@ package distributedchessboardgeneration
 func DecodeBitBoard(cbInt int) Chessboard {
 	var resetCB Chessboard
 	resetCB.Reset()
-	var retCB Chessboard
-	retCB.HasCastled = false
-	retCB.Board = make([][]ChessPiece, 8)
-	for i := range retCB.Board {
-		retCB.Board[i] = make([]ChessPiece, 8)
-	}
+	retCB := GenerateEmptyCB()
 	for curP := 0; curP <= 7; curP++ {
 		// Black Pawns
 		if (1<<(curP+15))&cbInt > 0 {

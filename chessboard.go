@@ -27,7 +27,6 @@ type Move struct {
 // Move: Takes a starting and ending Move struct, and returns an error if the method could not
 //
 //	I am not positive I want this to be a method of itself
-//
 //	successfully move the piece for any reason
 func (cb Chessboard) MoveSelf(starting, ending Move) error {
 	canMove := cb.IsValidMove(starting, ending)
@@ -303,13 +302,13 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 		if deltaCol == deltaRow {
 			if starting.Row < ending.Row {
 				if starting.Column < ending.Column {
-					for curRow, curCol := starting.Row+1, starting.Column-1; curRow < ending.Row; curRow, curCol = curRow+1, curCol-1 {
+					for curRow, curCol := starting.Row+1, starting.Column-1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow+1, curCol-1 {
 						if cb.Board[curRow][curCol].Color != Neither {
 							return false
 						}
 					}
 				} else {
-					for curRow, curCol := starting.Row+1, starting.Column+1; curRow < ending.Row; curRow, curCol = curRow+1, curCol+1 {
+					for curRow, curCol := starting.Row+1, starting.Column+1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow+1, curCol+1 {
 						if cb.Board[curRow][curCol].Color != Neither {
 							return false
 						}
@@ -317,13 +316,13 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 				}
 			} else {
 				if starting.Column < ending.Column {
-					for curRow, curCol := starting.Row-1, starting.Column-1; curRow < ending.Row; curRow, curCol = curRow-1, curCol-1 {
+					for curRow, curCol := starting.Row-1, starting.Column-1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow-1, curCol-1 {
 						if cb.Board[curRow][curCol].Color != Neither {
 							return false
 						}
 					}
 				} else {
-					for curRow, curCol := starting.Row-1, starting.Column+1; curRow < ending.Row; curRow, curCol = curRow-1, curCol+1 {
+					for curRow, curCol := starting.Row-1, starting.Column+1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow-1, curCol+1 {
 						if cb.Board[curRow][curCol].Color != Neither {
 							return false
 						}
@@ -361,10 +360,10 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 	default:
 		return false
 	}
-	if cb.IsResultCheck(starting, ending) {
-		return false
-	}
-	return true
+	// Note, the compiler was angry at me, so I did what it said.
+	//  As the final test, the result of IsResultCheck is the concluding
+	//  return.
+	return !cb.IsResultCheck(starting, ending)
 }
 
 func FindDeltas(starting, ending Move) (int, int) {
@@ -768,6 +767,14 @@ func (cb Chessboard) CreateNextMoves() []Chessboard {
 	return nextBoards
 }
 
+func StringifySliceCB(cbSlice []Chessboard) []string {
+	var nextMovesStrings []string
+	for _, board := range cbSlice {
+		nextMovesStrings = append(nextMovesStrings, board.Stringify())
+	}
+	return nextMovesStrings
+}
+
 // Takes a ChessBoard, and makes a string.  Will be used for mapping completed boards and prevent double execution
 func (cb Chessboard) Stringify() string {
 	stringCB := ""
@@ -779,35 +786,43 @@ func (cb Chessboard) Stringify() string {
 	return stringCB
 }
 
-// Takes a ChessPiece and makes it a string
-func (p ChessPiece) Stringify() string {
-	curPieceString := ""
-	if p.Color == Neither {
-		return "_"
+func CBoardify(cbString string) Chessboard {
+	retCB := GenerateEmptyCB()
+	curRow := 0
+	curCol := 0
+	for cbString != "" {
+		if cbString[0] == '_' {
+			retCB.Board[curRow][curCol] = ChessPiece{}
+			if len(cbString) > 1 {
+				cbString = cbString[1:]
+			} else {
+				break
+			}
+		} else {
+			retCB.Board[curRow][curCol] = CPieceify(cbString[:3])
+			if len(cbString) > 3 {
+				cbString = cbString[3:]
+			} else {
+				break
+			}
+		}
+		curRow++
+		if curRow > 7 {
+			curRow = 0
+			curCol++
+		}
 	}
-	if p.Color == Black {
-		curPieceString += "B"
-	} else if p.Color == White {
-		curPieceString += "W"
-	}
+	return retCB
+}
 
-	switch p.Name {
-	case Pawn:
-		curPieceString += "Pa"
-	case Rook:
-		curPieceString += "Ro"
-	case Knight:
-		curPieceString += "Kn"
-	case Bishop:
-		curPieceString += "Bi"
-	case Queen:
-		curPieceString += "Qu"
-	case King:
-		curPieceString += "Ki"
-	default:
-		log.Fatal("PrintSelf error, Piece with unknown name")
+func GenerateEmptyCB() Chessboard {
+	var retCB Chessboard
+	retCB.HasCastled = false
+	retCB.Board = make([][]ChessPiece, 8)
+	for i := range retCB.Board {
+		retCB.Board[i] = make([]ChessPiece, 8)
 	}
-	return curPieceString
+	return retCB
 }
 
 func (cb Chessboard) FindAllPieceLocations() []Move {
