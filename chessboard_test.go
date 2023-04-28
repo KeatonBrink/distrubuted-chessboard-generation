@@ -131,3 +131,5 @@ func TestIsCheckW2(t *testing.T) {
 		t.Errorf("got %v, wanted %v", got, want)
 	}
 }
+
+// Test

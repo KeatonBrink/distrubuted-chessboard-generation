@@ -162,6 +162,9 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 			if starting.Row <= ending.Row {
 				return false
 			}
+			if deltaCol > 0 && deltaRow != 1 {
+				return false
+			}
 			if deltaRow == 2 {
 				if starting.Row != 6 {
 					return false
@@ -194,6 +197,9 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 			// Color is White
 			// If the piece moves downwards
 			if starting.Row >= ending.Row {
+				return false
+			}
+			if deltaCol > 0 && deltaRow != 1 {
 				return false
 			}
 			if deltaRow == 2 {
@@ -256,7 +262,7 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 		}
 	case Knight:
 		// Only move 1 in a direction and 2 in the other
-		if (deltaCol == 2 && deltaRow != 1) || (deltaRow == 2 && deltaCol != 1) {
+		if !((deltaCol == 2 && deltaRow == 1) || (deltaRow == 2 && deltaCol == 1)) {
 			return false
 		}
 	case Bishop:
@@ -265,13 +271,13 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 		}
 		if starting.Row < ending.Row {
 			if starting.Column < ending.Column {
-				for curRow, curCol := starting.Row+1, starting.Column-1; curRow < ending.Row; curRow, curCol = curRow+1, curCol-1 {
+				for curRow, curCol := starting.Row+1, starting.Column-1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow+1, curCol-1 {
 					if cb.Board[curRow][curCol].Color != Neither {
 						return false
 					}
 				}
 			} else {
-				for curRow, curCol := starting.Row+1, starting.Column+1; curRow < ending.Row; curRow, curCol = curRow+1, curCol+1 {
+				for curRow, curCol := starting.Row+1, starting.Column+1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow+1, curCol+1 {
 					if cb.Board[curRow][curCol].Color != Neither {
 						return false
 					}
@@ -279,13 +285,13 @@ func (cb Chessboard) IsValidMove(starting, ending Move) bool {
 			}
 		} else {
 			if starting.Column < ending.Column {
-				for curRow, curCol := starting.Row-1, starting.Column-1; curRow < ending.Row; curRow, curCol = curRow-1, curCol-1 {
+				for curRow, curCol := starting.Row-1, starting.Column-1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow-1, curCol-1 {
 					if cb.Board[curRow][curCol].Color != Neither {
 						return false
 					}
 				}
 			} else {
-				for curRow, curCol := starting.Row-1, starting.Column+1; curRow < ending.Row; curRow, curCol = curRow-1, curCol+1 {
+				for curRow, curCol := starting.Row-1, starting.Column+1; curRow < ending.Row && (curRow >= 0 && curRow <= 7 && curCol >= 0 && curCol <= 7); curRow, curCol = curRow-1, curCol+1 {
 					if cb.Board[curRow][curCol].Color != Neither {
 						return false
 					}
@@ -368,19 +374,28 @@ func FindDeltas(starting, ending Move) (int, int) {
 }
 
 // Needs more tests
-func (cb Chessboard) IsResultCheck(starting, ending Move) bool {
-	tempCB := cb
+func (cb *Chessboard) IsResultCheck(starting, ending Move) bool {
+	tempCB := cb.DeepCopy()
 	tempCB.Board[ending.Row][ending.Column] = tempCB.Board[starting.Row][starting.Column]
 	tempCB.Board[starting.Row][starting.Column] = ChessPiece{Color: Neither, Name: Empty}
-	kingColor := tempCB.Board[starting.Row][starting.Column].Color
+	kingColor := tempCB.Board[ending.Row][ending.Column].Color
 	return tempCB.IsCheck(kingColor)
+}
+
+func (cb Chessboard) DeepCopy() Chessboard {
+	var newCB Chessboard
+	newCB.Board = make([][]ChessPiece, 8)
+	for curRow := 0; curRow <= 7; curRow++ {
+		newCB.Board[curRow] = append(newCB.Board[curRow], cb.Board[curRow]...)
+	}
+	return newCB
 }
 
 func (cb Chessboard) IsCheck(kingColor int) bool {
 	tempCB := cb
-	var kingLocation Move
-	for curRow := 0; curRow < 8; curRow++ {
-		for curCol := 0; curCol < 8; curCol++ {
+	kingLocation := Move{Row: -1, Column: -1}
+	for curRow := 0; curRow < 8 && kingLocation.Row == -1; curRow++ {
+		for curCol := 0; curCol < 8 && kingLocation.Row == -1; curCol++ {
 			if tempCB.Board[curRow][curCol].Color == kingColor && tempCB.Board[curRow][curCol].Name == King {
 				kingLocation.Row = curRow
 				kingLocation.Column = curCol
@@ -742,7 +757,7 @@ func (cb Chessboard) CreateNextMoves() []Chessboard {
 		for curCol := 0; curCol <= 7; curCol++ {
 			// At each location, test movement of all pieces to that location
 			for _, piece := range allPieceLocations {
-				testCB, err := MovePiece(cb, piece, Move{Row: curRow, Column: curCol})
+				testCB, err := MovePiece(cb.DeepCopy(), piece, Move{Row: curRow, Column: curCol})
 				// Note, an error occurs when the move is invalid, and should be thrown away
 				if err == nil {
 					nextBoards = append(nextBoards, testCB)
@@ -799,12 +814,24 @@ func (cb Chessboard) FindAllPieceLocations() []Move {
 	var allPieceLocations []Move
 	for curRow := 0; curRow <= 7; curRow++ {
 		for curCol := 0; curCol <= 7; curCol++ {
-			if cb.Board[curRow][curRow].Color != Neither {
+			if cb.Board[curRow][curCol].Color != Neither {
 				allPieceLocations = append(allPieceLocations, Move{Row: curRow, Column: curCol})
 			}
 		}
 	}
 	return allPieceLocations
+}
+
+func (cb Chessboard) CountAllPieces() int {
+	count := 0
+	for curRow := 0; curRow <= 7; curRow++ {
+		for curCol := 0; curCol <= 7; curCol++ {
+			if cb.Board[curRow][curCol].Color != Neither {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 // Need an IsCheckmate clause
@@ -813,7 +840,8 @@ func (cb Chessboard) FindAllPieceLocations() []Move {
 // Utilized by Master
 func GenerateBoards() {
 	outputCBChan := make(chan Chessboard, 10)
-	go NextIterativeBoard(outputCBChan)
+	var isFinishedChan chan Nothing
+	go NextIterativeBoard(outputCBChan, isFinishedChan)
 	for val := range outputCBChan {
 		log.Println(val.Stringify())
 		val.PrintSelf()
@@ -822,11 +850,12 @@ func GenerateBoards() {
 }
 
 // NextIterativeBoard takes in a board and essentially finds the next iteration of the board with new pieces
-func NextIterativeBoard(outputCBChan chan<- Chessboard) {
+func NextIterativeBoard(outputCBChan chan<- Chessboard, isFinishedChan chan<- Nothing) {
 	bitBoardChan := make(chan int, 20)
 	go GetAll30PowerSet(bitBoardChan)
 
 	for bitBoard := range bitBoardChan {
 		outputCBChan <- DecodeBitBoard(bitBoard)
 	}
+	isFinishedChan <- struct{}{}
 }
