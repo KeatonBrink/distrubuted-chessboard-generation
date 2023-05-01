@@ -4,7 +4,9 @@ db_default: ./.sqliterc
 	@for x in $(shell ls *.sql); do sqlite3 DCbG-caller/database.db < $$x > /dev/null; done
 
 clean:
-	rm -f DCbG-caller/database.db
+	rm -f cb_master/cb_master
+	rm -f cb_worker/cb_worker
+	rm -f cb_master/output.db
 
 shell:	$(HOME)/.sqliterc
 	@rm -f database.db

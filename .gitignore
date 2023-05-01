@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+cb_worker/cb_worker
+cb_master/cb_master
 
 # Test binary, built with `go test -c`
 *.test
