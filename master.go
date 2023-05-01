@@ -1,17 +1,19 @@
 package distributedchessboardgeneration
 
 import (
+	context "context"
 	"log"
-	"net/http"
-	"net/rpc"
+	"net"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
+	"google.golang.org/grpc"
 )
 
-type MNode struct {
-	BoardsToDo     chan Chessboard
-	BoardsToSQL    chan map[string][]string
+type MNodeServer struct {
+	UnimplementedChessboardTaskAssignmentServer
+	BoardsToDo     chan string
+	BoardsToSQL    chan map[string][]string // Might consider making this a stream or get rid of it altogether
 	FinishedBoards map[string]bool
 }
 
@@ -23,6 +25,13 @@ type GetBoardReply struct {
 type Nothing struct{}
 
 var Mutex sync.Mutex
+
+func (s *MNodeServer) GetCB(ctx context.Context, in *Message) (*ChessboardString, error) {
+	boardTask := <-s.BoardsToDo
+	log.Println("Tasking a Board: ", boardTask)
+	return &ChessboardString{Board: boardTask}, nil
+
+}
 
 func (n *MNode) Get_Board(nothing Nothing, reply *GetBoardReply) error {
 	Mutex.Lock()
@@ -55,23 +64,38 @@ func (n *MNode) Return_Board(curBoards map[string][]string, reply *Nothing) erro
 	return nil
 }
 
+func newServer() *MNodeServer {
+	s := &MNodeServer{BoardsToDo: make(chan string, 10), BoardsToSQL: make(chan map[string][]string, 2)}
+	go NextIterativeBoard(s.BoardsToDo)
+	// // This will eventually be replaced with GRPC
+	go InsertBoardAsSQL(s.BoardsToSQL)
+}
+
 func masterNode(port string) error {
 	myAddress := getLocalAddress() + ":" + port
-	masterNode := &MNode{BoardsToDo: make(chan Chessboard, 10), BoardsToSQL: make(chan map[string][]string), FinishedBoards: make(map[string]bool)}
-	var isFinishedChan chan Nothing
-	go NextIterativeBoard(masterNode.BoardsToDo, isFinishedChan)
-	// This will eventually be replaced with GRPC
-	go InsertBoardAsSQL(masterNode.BoardsToSQL)
-	rpc.Register(masterNode)
-	rpc.HandleHTTP()
-	go func() {
-		if err := http.ListenAndServe(myAddress, nil); err != nil {
-			log.Printf("Error in HTTP server for %s: %v", myAddress, err)
-		}
-	}()
-	log.Println("Created rpc with address ", myAddress)
-	<-isFinishedChan
-	return nil
+	lis, err := net.Listen("tcp", myAddress)
+	if err != nil {
+		return err
+	}
+	var opts []grpc.ServerOption
+	grpcServer := grpc.NewServer(opts...)
+	RegisterChessboardTaskAssignmentServer(grpcServer, newServer())
+	grpcServer.Serve(lis)
+	// masterNode := &MNode{BoardsToDo: make(chan Chessboard, 10), BoardsToSQL: make(chan map[string][]string), FinishedBoards: make(map[string]bool)}
+	// var isFinishedChan chan Nothing
+	// go NextIterativeBoard(masterNode.BoardsToDo, isFinishedChan)
+	// // This will eventually be replaced with GRPC
+	// go InsertBoardAsSQL(masterNode.BoardsToSQL)
+	// rpc.Register(masterNode)
+	// rpc.HandleHTTP()
+	// go func() {
+	// 	if err := http.ListenAndServe(myAddress, nil); err != nil {
+	// 		log.Printf("Error in HTTP server for %s: %v", myAddress, err)
+	// 	}
+	// }()
+	// log.Println("Created rpc with address ", myAddress)
+	// <-isFinishedChan
+	// return nil
 }
 
 func InsertBoardAsSQL(inputMapChan <-chan map[string][]string) {

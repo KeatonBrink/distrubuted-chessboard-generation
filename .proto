@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+
+option go_package = "https://github.com/KeatonBrink/distrubuted-chessboard-generation";
+
+package distributedchessboardgeneration;
+
+service ChessboardTaskAssignment {
+    rpc GetCb(Message) returns (ChessboardString) {}
+}
+
+// Message can be empty as the server always sends the next
+// available task.  However, the caller will send the server
+// for logging purposes.
+message Message {
+    string ip = 1;
+}
+
+message ChessboardString {
+    string Board = 1;
+}

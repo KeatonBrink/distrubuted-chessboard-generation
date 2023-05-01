@@ -865,12 +865,11 @@ func GenerateBoards() {
 }
 
 // NextIterativeBoard takes in a board and essentially finds the next iteration of the board with new pieces
-func NextIterativeBoard(outputCBChan chan<- Chessboard, isFinishedChan chan<- Nothing) {
+func NextIterativeBoard(outputCBChan chan<- string) {
 	bitBoardChan := make(chan int, 20)
 	go GetAll30PowerSet(bitBoardChan)
 
 	for bitBoard := range bitBoardChan {
-		outputCBChan <- DecodeBitBoard(bitBoard)
+		outputCBChan <- DecodeBitBoard(bitBoard).Stringify()
 	}
-	isFinishedChan <- struct{}{}
 }
