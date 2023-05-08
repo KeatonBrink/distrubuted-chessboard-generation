@@ -1,5 +1,9 @@
 package distributedchessboardgeneration
 
+import (
+	"log"
+)
+
 func DecodeBitBoard(cbInt int) Chessboard {
 	var resetCB Chessboard
 	resetCB.Reset()
@@ -39,23 +43,59 @@ func DecodeBitBoard(cbInt int) Chessboard {
 	return retCB
 }
 
-// Inefficient algorithm for generating all power sets
-func GetAll30PowerSet(outputChan chan<- int) {
-	for curPieceCount := 1; curPieceCount <= 30; curPieceCount++ {
-		PowerSetGen(curPieceCount, outputChan)
-	}
-}
+/************************************************
+Function: GetAll30PowerSet
+Input:
+Output: Powerset of 30 sent to output int channel
 
-// Grunt work of power set, given an integer
-func PowerSetGen(nbits int, outputChan chan<- int) {
-	for i := 1; i < (1 << 30); i++ {
-		bitCount := count1bits(i)
-		if bitCount == nbits {
-			outputChan <- i
+Example:
+Powerset of 3,
+	(1, 2, 4, 3, 5, 6, 7)
+	(0b001, 0b010, 0b100, 0b011, 0b101, 0b110, 0b111)
+************************************************/
+// Algorithm for generating power set
+func GetAll30PowerSet(outputChan chan<- int) {
+	// Some constants for comparison
+	// Bit Count is the number of bits in the that can be 1s
+	const bitCount = 30
+	// Upperbit is the overflow integer, anything generated bigger than this is bad
+	const uppperBit = 1 << bitCount
+	// Initialize the array of bits that will be modified
+	var bitSet []int
+	curSet := 0
+	// While there are still sets not solved, ie the number is less than 1 <<30
+	for curSet < uppperBit-1 {
+		// If all zeros are at the end of the current set
+		if (curSet<<len(bitSet))&(uppperBit-1) == 0 {
+			// For loop to initialize next round
+			for curIndex := 0; curIndex < len(bitSet); curIndex++ {
+				bitSet[curIndex] = 1<<len(bitSet) - curIndex
+			}
+			// Append a new 1 bit
+			bitSet = append(bitSet, 1)
+			// Else the current bit count stays the same
+		} else {
+			for index, curBitVal := range bitSet {
+				// If the bit can move without overflowing 30 bits
+				if curBitVal < (1 << (bitCount - 1 - index)) {
+					// Left shift the bit
+					bitSet[index] = bitSet[index] << 1
+					// Break out of for loop as no more bits need shifting
+					break
+					// Else left shift index twice past previous bit
+				} else {
+					bitSet[index] = bitSet[index+1] << 2
+				}
+			}
 		}
-	}
-	if nbits == 30 {
-		close(outputChan)
+		// Generate the set and send it to the channel
+		curSet = bit2Int(bitSet)
+		// Error checking
+		if curSet >= uppperBit {
+			log.Fatalf("Set value too big %v, Vs Upper limit %v", curSet, uppperBit)
+		}
+		// log.Printf("Current bit count %v and Value %v", count1bits(curSet), curSet)
+		outputChan <- curSet
 	}
 }
 
@@ -70,4 +110,12 @@ func count1bits(integer int) int {
 		}
 	}
 	return count
+}
+
+func bit2Int(bitArray []int) int {
+	retInt := 0
+	for _, val := range bitArray {
+		retInt = retInt | val
+	}
+	return retInt
 }
