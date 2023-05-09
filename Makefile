@@ -7,6 +7,7 @@ clean:
 	rm -f cb_master/cb_master
 	rm -f cb_worker/cb_worker
 	rm -f cb_master/output.db
+	rm -rf /tmp/cbWorker.*
 
 shell:	$(HOME)/.sqliterc
 	@rm -f database.db
