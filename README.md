@@ -11,12 +11,12 @@ DCG requires golang, gRPC, and Proto 3.
 
 The master node will create a starter chessboard for all worker nodes that attempt to contact it.
 
-Inside cb_master, the master node must first be built and then ran:
+Inside cb_master/, the master node must first be built and then ran:
 
     go build
     ./cb_master
 
-Likewise in cb_worker, the worker node must first be built and then ran.
+Likewise in cb_worker/, the worker node must first be built and then ran.
 
 Running cb_master will print an address that can then be used for the worker:
 
