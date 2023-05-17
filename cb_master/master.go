@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 
 	dcg "github.com/KeatonBrink/distrubuted-chessboard-generation/distributedchessboardgeneration"
@@ -13,6 +16,9 @@ import (
 
 type MNodeServer struct {
 	dcg.UnimplementedChessboardTaskAssignmentServer
+	dcg.UnimplementedChessboardReturnAssignmentURLServer
+	MyIP           string
+	MyTempPath     string
 	BoardsToDo     chan string
 	BoardsToSQL    chan map[string][]string // Might consider making this a stream or get rid of it altogether
 	FinishedBoards map[string]bool
@@ -28,6 +34,12 @@ func (s *MNodeServer) GetCb(ctx context.Context, in *dcg.Message) (*dcg.Chessboa
 	}
 	log.Println("Tasking a Board: ", boardTask)
 	return &dcg.ChessboardString{Board: boardTask, IsFinished: finished}, nil
+}
+
+func (s *MNodeServer) ReturnCb(ctx context.Context, in *dcg.ReturnMessage) (*dcg.Emptyy, error) {
+	log.Println("Recieving a board from: ", in.Ip)
+	dcg.Download(makeURL(in.Ip, in.FileName), filepath.Join(s.MyTempPath, in.FileName))
+	return &dcg.Emptyy{}, nil
 }
 
 // func (n *MNode) Return_Board(curBoards map[string][]string, reply *Nothing) error {
@@ -51,16 +63,16 @@ func (s *MNodeServer) GetCb(ctx context.Context, in *dcg.Message) (*dcg.Chessboa
 // 	return nil
 // }
 
-func newServer() *MNodeServer {
-	s := &MNodeServer{BoardsToDo: make(chan string, 10), BoardsToSQL: make(chan map[string][]string, 2)}
+func newServer(myAddress, tempdir string) *MNodeServer {
+	s := &MNodeServer{BoardsToDo: make(chan string, 10), BoardsToSQL: make(chan map[string][]string, 2), MyIP: myAddress, MyTempPath: tempdir}
 	go dcg.NextIterativeBoard(s.BoardsToDo)
-	// // This will eventually be replaced with GRPC
-	go InsertBoardAsSQL(s.BoardsToSQL)
 	return s
 }
 
 func main() {
 	portPtr := flag.String("port", "3410", "a String")
+	tempDirPtr := flag.String("tempdir", filepath.Join(os.TempDir(), fmt.Sprintf("cbMaster.%d", os.Getpid())), "a String")
+	tempdir := *tempDirPtr
 	flag.Parse()
 	port := *portPtr
 	myAddress := getLocalAddress() + ":" + port
@@ -68,64 +80,22 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	dirExists, err := exists(tempdir)
+	if err != nil {
+		log.Fatalf("Error creating tempdir: %v", err)
+	}
+	if !dirExists {
+		err := os.Mkdir(tempdir, 0750)
+		if err != nil {
+			log.Fatalf("Error creating tempdir: %v", err)
+		}
+	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	dcg.RegisterChessboardTaskAssignmentServer(grpcServer, newServer())
+	dcg.RegisterChessboardTaskAssignmentServer(grpcServer, newServer(myAddress, tempdir))
+	dcg.RegisterChessboardReturnAssignmentURLServer(grpcServer, newServer(myAddress, tempdir))
 	log.Printf("Master started with address: %v", myAddress)
 	grpcServer.Serve(lis)
-	// masterNode := &MNode{BoardsToDo: make(chan Chessboard, 10), BoardsToSQL: make(chan map[string][]string), FinishedBoards: make(map[string]bool)}
-	// var isFinishedChan chan Nothing
-	// go NextIterativeBoard(masterNode.BoardsToDo, isFinishedChan)
-	// // This will eventually be replaced with GRPC
-	// go InsertBoardAsSQL(masterNode.BoardsToSQL)
-	// rpc.Register(masterNode)
-	// rpc.HandleHTTP()
-	// go func() {
-	// 	if err := http.ListenAndServe(myAddress, nil); err != nil {
-	// 		log.Printf("Error in HTTP server for %s: %v", myAddress, err)
-	// 	}
-	// }()
-	// log.Println("Created rpc with address ", myAddress)
-	// <-isFinishedChan
-	// return nil
-}
-
-// Probably switch this to a client task
-func InsertBoardAsSQL(inputMapChan <-chan map[string][]string) {
-	// "database.db" is found here and in the makefile
-	sourceDB, err := dcg.OpenDatabase("database.db")
-	if err != nil {
-		log.Fatalf("error InsertBoardAsSQL: Could not open sql file database.db: %v", err)
-	}
-	defer sourceDB.Close()
-	indexCount := 1
-	for curMap := range inputMapChan {
-		log.Println("Writing map to disk")
-		chessboardIndex := make(map[string]int)
-		for curBoard := range curMap {
-			_, err := sourceDB.Exec("INSERT INTO chessboards (chessboard) VALUES (?)", curBoard)
-			if err != nil {
-				log.Fatalf("error InsertBoardAsSQL: INSERT INTO chessboards: %v", err)
-			}
-			chessboardIndex[curBoard] = indexCount
-			indexCount++
-		}
-		// Learned a lesson here, go purposefully randomizes the map
-		// Note, errors are occuring because chessboards are not created for boards
-		// with a number of pieces less than the starter.
-		// As such, the foreign key has been removed for the time being
-		for curBoard, nextBoards := range curMap {
-			for _, nextBoard := range nextBoards {
-				_, err = sourceDB.Exec("INSERT INTO move (from_id, to_id) VALUES (?, ?)", chessboardIndex[curBoard], chessboardIndex[nextBoard])
-				if err != nil {
-					log.Println(chessboardIndex[curBoard], curBoard)
-					log.Println(chessboardIndex[nextBoard], nextBoard)
-					log.Printf("error InsertBoardAsSQL: INSERT INTO move: %v", err)
-				}
-			}
-		}
-		log.Println("Finished writing map to disk")
-	}
 }
 
 func getLocalAddress() string {
@@ -139,3 +109,17 @@ func getLocalAddress() string {
 
 	return localAddr.IP.String()
 }
+
+// exists returns whether the given file or directory exists
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func makeURL(host, file string) string { return fmt.Sprintf("http://%s/data/%s", host, file) }

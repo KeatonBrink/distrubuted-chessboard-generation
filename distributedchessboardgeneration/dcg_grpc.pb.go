@@ -104,3 +104,90 @@ var ChessboardTaskAssignment_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "distributedchessboardgeneration/dcg.proto",
 }
+
+// ChessboardReturnAssignmentURLClient is the client API for ChessboardReturnAssignmentURL service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ChessboardReturnAssignmentURLClient interface {
+	ReturnCb(ctx context.Context, in *ReturnMessage, opts ...grpc.CallOption) (*Emptyy, error)
+}
+
+type chessboardReturnAssignmentURLClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewChessboardReturnAssignmentURLClient(cc grpc.ClientConnInterface) ChessboardReturnAssignmentURLClient {
+	return &chessboardReturnAssignmentURLClient{cc}
+}
+
+func (c *chessboardReturnAssignmentURLClient) ReturnCb(ctx context.Context, in *ReturnMessage, opts ...grpc.CallOption) (*Emptyy, error) {
+	out := new(Emptyy)
+	err := c.cc.Invoke(ctx, "/distributedchessboardgeneration.ChessboardReturnAssignmentURL/ReturnCb", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ChessboardReturnAssignmentURLServer is the server API for ChessboardReturnAssignmentURL service.
+// All implementations must embed UnimplementedChessboardReturnAssignmentURLServer
+// for forward compatibility
+type ChessboardReturnAssignmentURLServer interface {
+	ReturnCb(context.Context, *ReturnMessage) (*Emptyy, error)
+	mustEmbedUnimplementedChessboardReturnAssignmentURLServer()
+}
+
+// UnimplementedChessboardReturnAssignmentURLServer must be embedded to have forward compatible implementations.
+type UnimplementedChessboardReturnAssignmentURLServer struct {
+}
+
+func (UnimplementedChessboardReturnAssignmentURLServer) ReturnCb(context.Context, *ReturnMessage) (*Emptyy, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReturnCb not implemented")
+}
+func (UnimplementedChessboardReturnAssignmentURLServer) mustEmbedUnimplementedChessboardReturnAssignmentURLServer() {
+}
+
+// UnsafeChessboardReturnAssignmentURLServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ChessboardReturnAssignmentURLServer will
+// result in compilation errors.
+type UnsafeChessboardReturnAssignmentURLServer interface {
+	mustEmbedUnimplementedChessboardReturnAssignmentURLServer()
+}
+
+func RegisterChessboardReturnAssignmentURLServer(s grpc.ServiceRegistrar, srv ChessboardReturnAssignmentURLServer) {
+	s.RegisterService(&ChessboardReturnAssignmentURL_ServiceDesc, srv)
+}
+
+func _ChessboardReturnAssignmentURL_ReturnCb_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReturnMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChessboardReturnAssignmentURLServer).ReturnCb(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/distributedchessboardgeneration.ChessboardReturnAssignmentURL/ReturnCb",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChessboardReturnAssignmentURLServer).ReturnCb(ctx, req.(*ReturnMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ChessboardReturnAssignmentURL_ServiceDesc is the grpc.ServiceDesc for ChessboardReturnAssignmentURL service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ChessboardReturnAssignmentURL_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "distributedchessboardgeneration.ChessboardReturnAssignmentURL",
+	HandlerType: (*ChessboardReturnAssignmentURLServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReturnCb",
+			Handler:    _ChessboardReturnAssignmentURL_ReturnCb_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "distributedchessboardgeneration/dcg.proto",
+}

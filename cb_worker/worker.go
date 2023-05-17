@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -41,6 +42,12 @@ func main() {
 	port := *portPtr
 	masterAddress := *masterAddrPtr
 	myAddress := getLocalAddress() + ":" + port
+	http.Handle("/data/", http.StripPrefix("/data", http.FileServer(http.Dir(tempdir))))
+	go func() {
+		if err := http.ListenAndServe(myAddress, nil); err != nil {
+			log.Printf("Error in HTTP server for %s: %v", myAddress, err)
+		}
+	}()
 	for {
 		// Grab board from master
 		curReply := getBoard(masterAddress, myAddress)
@@ -51,9 +58,9 @@ func main() {
 			break
 		}
 		// SQLite routine
-		isDone := make(chan struct{})
+		isDoneAndFileName := make(chan string)
 		moveChan := make(chan NextMoves, 100)
-		go SQLMoves(moveChan, isDone, tempdir)
+		go SQLMoves(moveChan, isDoneAndFileName, tempdir)
 		// Creates first set of moves from given board
 		curBoard := dcg.CBoardify(curReply.GetBoard())
 		curPieceCount := curBoard.CountAllPieces()
@@ -86,9 +93,9 @@ func main() {
 			}
 		}
 		close(moveChan)
-		<-isDone
+		retFileName := <-isDoneAndFileName
 		log.Println("Returning board")
-		returnBoards(masterAddress, myAddress)
+		returnBoards(masterAddress, myAddress, retFileName)
 	}
 }
 
@@ -110,9 +117,10 @@ func getBoard(masterAddr, myAddr string) *dcg.ChessboardString {
 	return BoardReply
 }
 
-func SQLMoves(inputChan <-chan NextMoves, isDone chan<- struct{}, tempdir string) {
+func SQLMoves(inputChan <-chan NextMoves, isDone chan<- string, tempdir string) {
 	curNextMoves := <-inputChan
-	cfilepath := filepath.Join(tempdir, fmt.Sprint(curNextMoves.cMove, ".db"))
+	cfilename := fmt.Sprint(curNextMoves.cMove, ".db")
+	cfilepath := filepath.Join(tempdir, cfilename)
 	curDB, err := dcg.OpenDatabase(cfilepath)
 	if err != nil {
 		log.Fatalf("error openDatabase: %v", err)
@@ -171,24 +179,28 @@ func SQLMoves(inputChan <-chan NextMoves, isDone chan<- struct{}, tempdir string
 			}
 		}
 	}
-	isDone <- struct{}{}
+	isDone <- cfilename
 }
 
 // Return board will have a string indicating the original board, and worker ip for grabbing db
-func returnBoards(masterAddr, myAddress string) {
-	log.Println("returnBoards is not currently implemented")
-	// TODO
-	// client, err := rpc.DialHTTP("tcp", string(masterAddr))
-	// if err != nil {
-	// 	log.Fatalf("rpc.DialHTTP(Return_Board): %v", err)
-	// }
-	// var reply Nothing
-	// if err = client.Call("MNode.Return_Board", curBoards, &reply); err != nil {
-	// 	log.Fatalf("client.Call(Return_Board): %v", err)
-	// }
-	// if err = client.Close(); err != nil {
-	// 	log.Fatalf("client.Close(Return_Board) %v", err)
-	// }
+func returnBoards(masterAddr, myAddress, fileName string) {
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(masterAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+	client := dcg.NewChessboardReturnAssignmentURLClient(conn)
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
+	defer cancel()
+	_, err = client.ReturnCb(ctx, &dcg.ReturnMessage{Ip: myAddress, FileName: fileName})
+	if err != nil {
+		log.Fatalf("Could not return Chessboard: %v", err)
+	}
+	end := time.Now()
+	log.Printf("Time required to return board: %v", end.Sub(start))
 }
 
 func getLocalAddress() string {
