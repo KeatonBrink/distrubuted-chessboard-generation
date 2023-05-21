@@ -108,7 +108,7 @@ func getBoard(masterAddr, myAddr string) *dcg.ChessboardString {
 	}
 	defer conn.Close()
 	client := dcg.NewChessboardTaskAssignmentClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 	BoardReply, err := client.GetCb(ctx, &dcg.Message{Ip: myAddr})
 	if err != nil {
@@ -193,14 +193,19 @@ func returnBoards(masterAddr, myAddress, fileName string) {
 	defer conn.Close()
 	client := dcg.NewChessboardReturnAssignmentURLClient(conn)
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300)
+	defer closingBoard(start)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30000)
 	defer cancel()
 	_, err = client.ReturnCb(ctx, &dcg.ReturnMessage{Ip: myAddress, FileName: fileName})
 	if err != nil {
 		log.Fatalf("Could not return Chessboard: %v", err)
 	}
+
+}
+
+func closingBoard(nower time.Time) {
 	end := time.Now()
-	log.Printf("Time required to return board: %v", end.Sub(start))
+	log.Printf("Time required to return board: %v", end.Sub(nower))
 }
 
 func getLocalAddress() string {
