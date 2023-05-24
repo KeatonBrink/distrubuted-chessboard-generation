@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -20,17 +21,25 @@ type MNodeServer struct {
 	MyIP           string
 	MyTempPath     string
 	BoardsToDo     chan string
-	BoardsToSQL    chan map[string][]string // Might consider making this a stream or get rid of it altogether
 	FinishedBoards map[string]bool
 }
 
 var Mutex sync.Mutex
 
 func (s *MNodeServer) GetCb(ctx context.Context, in *dcg.Message) (*dcg.ChessboardString, error) {
-	boardTask, ok := <-s.BoardsToDo
 	finished := false
-	if !ok {
-		finished = true
+	boardTask := ""
+	var ok bool
+	for {
+		boardTask, ok = <-s.BoardsToDo
+		if !ok {
+			finished = true
+			break
+		}
+		_, boardIsDone := s.FinishedBoards[fmt.Sprintf("%v.db", boardTask)]
+		if !boardIsDone {
+			break
+		}
 	}
 	log.Println("Tasking a Board: ", boardTask)
 	return &dcg.ChessboardString{Board: boardTask, IsFinished: finished}, nil
@@ -42,41 +51,21 @@ func (s *MNodeServer) ReturnCb(ctx context.Context, in *dcg.ReturnMessage) (*dcg
 	return &dcg.Emptyy{}, nil
 }
 
-// func (n *MNode) Return_Board(curBoards map[string][]string, reply *Nothing) error {
-// 	log.Println("Recieving Finished Board")
-// 	Mutex.Lock()
-// 	defer Mutex.Unlock()
-// 	for mstring := range curBoards {
-// 		if _, ok := n.FinishedBoards[mstring]; !ok {
-// 			n.FinishedBoards[mstring] = true
-// 		} else {
-// 			// Note, a rook/Knight on one side will have all the same moves as the other side
-// 			//  And consequently throw this error.  Slight bug that leads to extra processing,
-// 			//  but not detrimental to overall system design
-// 			// log.Printf("Error in Returning computed board:\n%v", mstring)
-
-// 			// Returning nil will avoid double entries in the SQL database
-// 			return nil
-// 		}
-// 	}
-// 	n.BoardsToSQL <- curBoards
-// 	return nil
-// }
-
-func newServer(myAddress, tempdir string) *MNodeServer {
-	s := &MNodeServer{BoardsToDo: make(chan string, 10), BoardsToSQL: make(chan map[string][]string, 2), MyIP: myAddress, MyTempPath: tempdir}
+func newServer(myAddress, tempdir string, fileNames map[string]bool) *MNodeServer {
+	s := &MNodeServer{BoardsToDo: make(chan string, 10), MyIP: myAddress, MyTempPath: tempdir, FinishedBoards: fileNames}
 	go dcg.NextIterativeBoard(s.BoardsToDo)
 	return s
 }
 
 func main() {
 	portPtr := flag.String("port", "3410", "a String")
-	tempDirPtr := flag.String("tempdir", filepath.Join(os.TempDir(), fmt.Sprintf("cbMaster.%d", os.Getpid())), "a String")
+	tempDirPtr := flag.String("tempdir", filepath.Join(os.TempDir(), "cbMaster.1"), "a String")
 	tempdir := *tempDirPtr
 	flag.Parse()
 	port := *portPtr
 	myAddress := getLocalAddress() + ":" + port
 	lis, err := net.Listen("tcp", myAddress)
+	fileNames := make(map[string]bool)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -89,11 +78,21 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error creating tempdir: %v", err)
 		}
+	} else {
+		files, err := ioutil.ReadDir(tempdir)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, file := range files {
+			fileNames[file.Name()] = true
+		}
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	dcg.RegisterChessboardTaskAssignmentServer(grpcServer, newServer(myAddress, tempdir))
-	dcg.RegisterChessboardReturnAssignmentURLServer(grpcServer, newServer(myAddress, tempdir))
+	newServerVar := newServer(myAddress, tempdir, fileNames)
+	dcg.RegisterChessboardTaskAssignmentServer(grpcServer, newServerVar)
+	dcg.RegisterChessboardReturnAssignmentURLServer(grpcServer, newServerVar)
 	log.Printf("Master started with address: %v", myAddress)
 	grpcServer.Serve(lis)
 }
