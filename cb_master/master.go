@@ -59,7 +59,7 @@ func newServer(myAddress, tempdir string, fileNames map[string]bool) *MNodeServe
 
 func main() {
 	portPtr := flag.String("port", "3410", "a String")
-	tempDirPtr := flag.String("tempdir", filepath.Join(os.TempDir(), "cbMaster.1"), "a String")
+	tempDirPtr := flag.String("tempdir", "Data", "a String")
 	tempdir := *tempDirPtr
 	flag.Parse()
 	port := *portPtr

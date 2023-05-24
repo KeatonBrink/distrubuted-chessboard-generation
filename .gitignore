@@ -15,3 +15,6 @@ cb_master/cb_master
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Finished Data Files
+cb_master/Data
