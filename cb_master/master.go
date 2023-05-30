@@ -60,10 +60,12 @@ func newServer(myAddress, tempdir string, fileNames map[string]bool) *MNodeServe
 func main() {
 	portPtr := flag.String("port", "3410", "a String")
 	tempDirPtr := flag.String("tempdir", "Data", "a String")
-	tempdir := *tempDirPtr
+	myAddrPtr := flag.String("myAddr", getLocalAddress(), "a String")
 	flag.Parse()
+	tempdir := *tempDirPtr
 	port := *portPtr
-	myAddress := getLocalAddress() + ":" + port
+	myAddr := *myAddrPtr
+	myAddress := myAddr + ":" + port
 	lis, err := net.Listen("tcp", myAddress)
 	fileNames := make(map[string]bool)
 	if err != nil {

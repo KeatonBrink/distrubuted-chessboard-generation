@@ -25,6 +25,11 @@ func main() {
 	masterAddrPtr := flag.String("masterAddr", getLocalAddress()+":3410", "a String")
 	portPtr := flag.String("port", "3411", "a String")
 	tempDirPtr := flag.String("tempdir", filepath.Join(os.TempDir(), fmt.Sprintf("cbWorker.%d", os.Getpid())), "a String")
+	myAddrPtr := flag.String("myAddr", getLocalAddress(), "a String")
+	flag.Parse()
+	myAddr := *myAddrPtr
+	port := *portPtr
+	masterAddress := *masterAddrPtr
 	tempdir := *tempDirPtr
 	// Create temporary directory for storing db files
 	dirExists, err := exists(tempdir)
@@ -38,10 +43,7 @@ func main() {
 		}
 	}
 	defer os.RemoveAll(tempdir)
-	flag.Parse()
-	port := *portPtr
-	masterAddress := *masterAddrPtr
-	myAddress := getLocalAddress() + ":" + port
+	myAddress := myAddr + ":" + port
 	http.Handle("/data/", http.StripPrefix("/data", http.FileServer(http.Dir(tempdir))))
 	go func() {
 		if err := http.ListenAndServe(myAddress, nil); err != nil {
